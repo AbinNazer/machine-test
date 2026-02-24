@@ -296,6 +296,152 @@ docker exec -it <backend-container> python manage.py migrate
 ```
 
 ---
+# ⚙ Backend Configuration (Based on Machine Test Requirement)
+
+According to the machine test instructions:
+
+- The default Django database configuration had to be replaced.
+- The MySQL configuration block needed to be uncommented.
+- All database credentials and `SECRET_KEY` must be loaded from `.env`.
+- No credentials should be hardcoded.
+- DEBUG must support production configuration.
+- Environment variables must work properly inside Docker.
+
+Below are the changes implemented in `settings.py`.
+
+---
+
+## 🔐 Environment Variable Handling
+
+Environment variables are loaded using `python-dotenv`:
+
+```python
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+```
+
+This ensures:
+
+- Secure credential management
+- No hardcoded secrets
+- Compatibility with Docker environment variables
+
+---
+
+## 🔑 SECRET_KEY Configuration
+
+```python
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+```
+
+✔ SECRET_KEY is not hardcoded  
+✔ Loaded securely from `.env`  
+
+---
+
+## 🛡 DEBUG Configuration (Production Ready Support)
+
+```python
+DEBUG = os.getenv("DJANGO_DEBUG") == "True"
+```
+
+This allows:
+
+- `DEBUG=True` for development
+- `DEBUG=False` for production
+- Easy switching via environment variables
+
+---
+
+## 🗄 MySQL Database Configuration
+
+The default SQLite configuration was replaced with MySQL:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv("MYSQL_DATABASE"),
+        'USER': os.getenv("MYSQL_USER"),
+        'PASSWORD': os.getenv("MYSQL_PASSWORD"),
+        'HOST': os.getenv("MYSQL_HOST"),
+        'PORT': os.getenv("MYSQL_PORT"),
+    }
+}
+```
+
+✔ Credentials loaded from `.env`  
+✔ No hardcoded values  
+✔ Uses Docker service name (`db`) as host  
+✔ Proper environment-based configuration  
+
+---
+
+## 🌐 CORS Configuration
+
+To allow frontend-backend communication:
+
+```python
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+```
+
+This ensures the React frontend can communicate with the Django backend.
+
+---
+
+## 📦 Installed Applications
+
+Additional apps configured:
+
+```python
+INSTALLED_APPS = [
+    ...
+    'corsheaders',
+    'rest_framework',
+    'tasks',
+]
+```
+
+- `corsheaders` → Handle cross-origin requests
+- `rest_framework` → API support
+- `tasks` → Custom Django app
+
+---
+
+## 🚀 Production Server Configuration
+
+Instead of using Django's development server:
+
+- Gunicorn is used
+- Started via `wait-for-db.sh`
+- Backend runs only after MySQL is ready
+
+```bash
+gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --timeout 120
+```
+
+---
+
+## ✅ Machine Test Requirements Fulfilled
+
+✔ Dockerized Django backend  
+✔ MySQL configured properly  
+✔ Environment variables used securely  
+✔ No credentials hardcoded  
+✔ Production-ready DEBUG support  
+✔ Docker environment variable handling  
+✔ Database readiness handling  
+✔ CI pipeline configured  
+
+---
 
 # 🎯 Summary
 
